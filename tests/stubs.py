@@ -50,7 +50,8 @@ async def create_new_spot_stub(db: AsyncSession,
 
 
 async def delete_spot_stub(db: AsyncSession,
-                           spot_id: int):
+                           spot_id: int,
+                           owner_id: int = None):
     return Response(status_code=HTTPStatus.NO_CONTENT.value)
 
 

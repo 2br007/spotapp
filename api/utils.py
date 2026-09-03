@@ -1,11 +1,9 @@
-from passlib.context import CryptContext
+import bcrypt
 
 
 class PasswordHasher():
-    pass_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
     def verify_password(self, plain_password, hashed_password):
-        return self.pass_context.verify(plain_password, hashed_password)
+        return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
 
     def hash_password(self, password):
-        return self.pass_context.hash(password)
+        return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()

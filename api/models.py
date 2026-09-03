@@ -23,9 +23,11 @@ class UserDBModel(Base):
     added_spots = Column(ARRAY(String), nullable=True, )
     favourite_spots = Column(ARRAY(String), nullable=True, )
     premium_account_type = Column(Boolean, default=False)
+    disabled = Column(Boolean, default=False, nullable=False)
 
-    spots = relationship("SpotDBModel")
-    # comments = relationship("Comment", back_populates="users")
+    spots = relationship("SpotDBModel", cascade="all, delete-orphan")
+    comments = relationship("CommentDBModel", back_populates="owner",
+                            cascade="all, delete-orphan")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
@@ -48,10 +50,12 @@ class SpotDBModel(Base):
     spot_description = Column(Text)
     spot_raiting = Column(Float)
     comment = Column(ARRAY(String))
-    owner_id = Column(Integer, ForeignKey("users.user_id"))
-
-    # owner = relationship("Users", back_populates="spots")
-    # comments = relationship("Comment", back_populates="comments")
+    sport_type = Column(String(20), nullable=False, default="skateboarding")
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    comments = relationship("CommentDBModel", back_populates="spot",
+                            cascade="all, delete-orphan")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
@@ -61,10 +65,11 @@ class CommentDBModel(Base):
     comment_id = Column(Integer, primary_key=True, index=True)
     body = Column(Text)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    owner_id = Column(Integer, ForeignKey("users.user_id"))
+    owner_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    spot_id = Column(Integer, ForeignKey("spots.spot_id"), nullable=False)
 
-    # owner = relationship("User", back_populates="spots")
-    # spots = relationship("Spot", back_populates="comments")
+    owner = relationship("UserDBModel", back_populates="comments")
+    spot = relationship("SpotDBModel", back_populates="comments")
 
 
 async def async_create_tables():  # pragma: no cover

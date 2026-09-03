@@ -18,13 +18,13 @@ def test_comment_get_by_id_422(client, mocker):
                         side_effect=stubs.get_comment_by_id_empty_stub, autospec=True)
     response = client.get("/comments/wrong_data_type")
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-    assert response.json() == sample.EXAMPLE_COMMENT_422
+    assert response.json()["detail"][0]["loc"] == ["path", "comment_id"]
 
 
 def test_create_comment_ok(client, mocker):
     mocker.patch.object(CRUDComment, "add_comment",
                         side_effect=stubs.create_new_comment_stub, autospec=True)
-    response = client.post("/comments/create/", json.dumps(sample.RAW_COMMENT))
+    response = client.post("/comments/create/", json=sample.RAW_COMMENT)
     assert response.status_code == HTTPStatus.CREATED
     assert response.json() == sample.EXAMPLE_COMMENT
 

@@ -11,8 +11,7 @@ async_engine = create_async_engine(
     connect_args={"timeout": settings.db_query_timeout}
 )
 
-SessionFactory = sessionmaker(autocommit=False,
-                              autoflush=False,
+SessionFactory = sessionmaker(autoflush=False,
                               bind=async_engine,
                               class_=AsyncSession)
 

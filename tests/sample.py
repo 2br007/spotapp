@@ -48,6 +48,9 @@ EXAMPLE_SPOT = {
     "spot_description": "Doe",
     "spot_raiting": 4,
     "comment": [],
+    "sport_type": "skateboarding",
+    "latitude": 48.8566,
+    "longitude": 2.3522,
     "owner_id": 1
 }
 EXAMPLE_SPOT_422 = {
@@ -68,10 +71,14 @@ RAW_SPOT = {
     "spot_street": "Campbell Falls",
     "spot_street_number": "25",
     "spot_description": "Doe",
-    "owner_id": 1
+    "owner_id": 1,
+    "sport_type": "skateboarding",
+    "latitude": 48.8566,
+    "longitude": 2.3522,
 }
 RAW_COMMENT = {
     "body": "This is awesome spot!",
+    "spot_id": 1,
 }
 EXAMPLE_COMMENT = {
     "comment_id": 1,

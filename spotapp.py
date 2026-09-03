@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from api.constants import API_TITLE
 from api.middleware import http_exception_handler
 
@@ -20,11 +21,18 @@ def spotapp_api() -> FastAPI:
     app.include_router(spotapp_user_router)
     app.include_router(spotapp_spot_router)
     app.include_router(spotapp_comment_router)
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
     return app
 
 
 app = application = api = spotapp_api()
+
+
+@app.get("/", include_in_schema=False)
+async def webapp():
+    from fastapi.responses import FileResponse
+    return FileResponse("static/index.html")
 
 
 @app.get("/health")

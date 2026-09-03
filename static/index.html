@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpotApp | Find your next line</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">S</span><span>spotapp</span></div>
+      <div class="eyebrow">Find your next line</div>
+      <h1>Places made<br>to move.</h1>
+      <p class="intro">Explore community spots for skateboarding, surfing and BMX. Drop a pin when you find somewhere worth sharing.</p>
+
+      <section class="panel auth-panel" id="auth-panel">
+        <div class="panel-heading"><span>Welcome in</span><span class="status-dot"></span></div>
+        <div class="auth-tabs"><button class="tab active" data-mode="login">Log in</button><button class="tab" data-mode="register">Register</button></div>
+        <form id="auth-form">
+          <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
+          <label id="name-field" class="hidden">Nickname<input name="nickname" type="text" placeholder="streetname"></label>
+          <label>Password<input name="password" type="password" required placeholder="••••••••"></label>
+          <button class="button primary" type="submit"><span id="auth-submit">Log in</span><span>→</span></button>
+        </form>
+        <p class="form-message" id="auth-message"></p>
+      </section>
+
+      <section class="panel user-panel hidden" id="user-panel">
+        <div class="panel-heading"><span>Session active</span><span class="live-label">LIVE</span></div>
+        <div class="user-row"><div class="avatar" id="user-avatar">S</div><div><strong id="user-email"></strong><small>Ready to explore</small></div><button class="icon-button" id="logout" title="Log out">×</button></div>
+      </section>
+
+      <section class="panel spot-panel hidden" id="spot-panel">
+        <div class="panel-heading"><span>Add a spot</span><span class="pin-label">DROP PIN</span></div>
+        <p class="hint">Click anywhere on the map to set the location, then tell the crew what makes it good.</p>
+        <form id="spot-form">
+          <label>Spot name<input name="spot_name" required placeholder="Riverside ledges"></label>
+          <label>Discipline<select name="sport_type"><option value="skateboarding">Skateboarding</option><option value="surfing">Surfing</option><option value="bmx">BMX</option></select></label>
+          <label>Description<textarea name="spot_description" rows="2" placeholder="Best at golden hour..." required></textarea></label>
+          <div class="coords"><span>LAT <b id="latitude">—</b></span><span>LON <b id="longitude">—</b></span></div>
+          <button class="button primary" type="submit">Publish spot <span>↗</span></button>
+        </form>
+        <p class="form-message" id="spot-message"></p>
+      </section>
+
+      <footer><span>OpenStreetMap data</span><span>Built for motion</span></footer>
+    </aside>
+    <section class="map-stage">
+      <div class="map-toolbar">
+        <form id="search-form" class="search"><span>⌕</span><input id="search-input" placeholder="Search a city or coastline" aria-label="Search a city or coastline"><button type="submit">Find</button></form>
+        <div class="toolbar-actions"><button class="tool-button" id="locate" title="Use my location">◎ <span>Locate me</span></button><div class="filters"><button class="filter active" data-filter="all">All</button><button class="filter" data-filter="skateboarding">Skate</button><button class="filter" data-filter="surfing">Surf</button><button class="filter" data-filter="bmx">BMX</button></div></div>
+      </div>
+      <div id="map"></div>
+      <div class="map-legend"><span><i class="legend-dot skateboarding"></i> Skateboarding</span><span><i class="legend-dot surfing"></i> Surfing</span><span><i class="legend-dot bmx"></i> BMX</span></div>
+      <div class="map-note" id="map-note">Explore community spots.</div>
+    </section>
+  </main>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

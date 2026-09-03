@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import ValidationError
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api import schema
@@ -18,8 +19,8 @@ from api.utils import PasswordHasher
 
 spotapp_auth_router = APIRouter(tags=["Authentication"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-SECRET_KEY = os.environ.get("SECRET_KEY")
-ALGORITHM = os.environ.get("ALGORITHM")
+SECRET_KEY = os.environ["SECRET_KEY"]
+ALGORITHM = os.environ.get("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
@@ -37,27 +38,30 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(),
     """Login user with email"""
     try:
         user = await CRUDUser.login(db=db, username=form_data.username)
-        if not user:
-            raise HTTPException(status_code=400,
-                                detail="User with this email does not exist")
+        if not user or not PasswordHasher().verify_password(
+                form_data.password, user.password):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail="Incorrect email or password",
+                                headers={"WWW-Authenticate": "Bearer"})
 
-        if not PasswordHasher().verify_password(form_data.password, user.password):
-            raise HTTPException(status_code=400,
-                                detail="Incorrect password")
-
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
             data={"sub": user.email},
-            expires_delta=access_token_expires,
+            expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
         )
-
         return {"access_token": access_token, "token_type": "bearer"}
-
+    except NoResultFound:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Incorrect email or password",
+                            headers={"WWW-Authenticate": "Bearer"})
+    except HTTPException:
+        raise
     except ValidationError as exc:
-        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail=exc)
-    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE,
+                            detail=str(exc))
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 def create_access_token(data: dict,
@@ -74,7 +78,9 @@ def create_access_token(data: dict,
     return encoded_jwt
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(token: str = Depends(oauth2_scheme),
+                           db: AsyncSession = Depends(get_session),
+                           ) -> UserDBModel:
     """Getting current authorized user"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -86,13 +92,20 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
-        schema.TokenData(email=email)
-    except JWTError:
+        token_data = schema.TokenData(email=email)
+        user = await CRUDUser.get_user_by_email(db=db, email=token_data.email)
+        if not user:
+            raise credentials_exception
+        return user
+    except (JWTError, ValidationError):
+        raise credentials_exception
+    except NoResultFound:
         raise credentials_exception
 
 
 async def get_current_active_user(current_user: UserDBModel = Depends(get_current_user)):
     """Getting active user"""
     if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Inactive user")
     return current_user

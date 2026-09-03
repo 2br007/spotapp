@@ -1,7 +1,12 @@
 import pytest
 import pytest_asyncio
+import os
 from httpx import AsyncClient
 from fastapi.testclient import TestClient
+
+os.environ.setdefault("db_dsn", "postgresql+asyncpg://user:pass@localhost_unittest:5432/mockup")
+os.environ.setdefault("SECRET_KEY", "unit-test-secret-key")
+os.environ.setdefault("ALGORITHM", "HS256")
 
 import spotapp
 from api.models import Base

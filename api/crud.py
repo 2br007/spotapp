@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from fastapi import Response
 from sqlalchemy import select
@@ -25,6 +25,13 @@ class CRUDUser:
         return result.scalar_one()
 
     @classmethod
+    async def get_user_by_email(cls, db: AsyncSession,
+                                email: str) -> UserDBModel:
+        query = select(cls.model).where(cls.model.email == email)
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    @classmethod
     async def get_user_by_id(cls, db: AsyncSession,
                              user_id: int) -> schema.UserOpenSchema:
         """Get user by id"""
@@ -42,7 +49,7 @@ class CRUDUser:
         query = select(cls.model)
         result = await db.execute(query)
 
-        return [user[cls.model] for user in result.all()]
+        return list(result.scalars().all())
 
     @classmethod
     async def add_user(cls, db: AsyncSession,
@@ -64,7 +71,7 @@ class CRUDUser:
         query = (
             sqlalchemy_update(cls.model)
             .where(cls.model.user_id == user_id)
-            .values(**{k: v for k, v in data.items() if v})
+            .values(**{k: v for k, v in data.items() if v is not None})
             .execution_options(synchronize_session="fetch")
         )
 
@@ -108,11 +115,11 @@ class CRUDSpot:
                                  filter: schema.SpotFilterSchema
                                  ) -> List[schema.SpotSchema]:
         """Get all spots"""
-        filter_params = {k: v for k, v in filter.dict().items() if v}
+        filter_params = {k: v for k, v in filter.model_dump().items() if v}
         query = select(cls.model).filter_by(**filter_params)
         result = await db.execute(query)
 
-        return [spot[cls.model] for spot in result.all()]
+        return list(result.scalars().all())
 
     @classmethod
     async def add_spot(cls, db: AsyncSession,
@@ -127,15 +134,18 @@ class CRUDSpot:
     async def update(cls, db: AsyncSession,
                      spot_id: int,
                      data: Dict,
+                     owner_id: Optional[int] = None,
                      ) -> str:
         """Update a spot from data base"""
 
         query = (
             sqlalchemy_update(cls.model)
             .where(cls.model.spot_id == spot_id)
-            .values(**{k: v for k, v in data.items() if v})
+            .values(**{k: v for k, v in data.items() if v is not None})
             .execution_options(synchronize_session="fetch")
         )
+        if owner_id is not None:
+            query = query.where(cls.model.owner_id == owner_id)
 
         result = await db.execute(query)
 
@@ -147,10 +157,13 @@ class CRUDSpot:
 
     @classmethod
     async def delete_spot(cls, db: AsyncSession,
-                          spot_id: int) -> Response:
+                          spot_id: int,
+                          owner_id: Optional[int] = None) -> Response:
         """Delete spot from data base"""
 
         query = select(cls.model).filter(cls.model.spot_id == spot_id)
+        if owner_id is not None:
+            query = query.filter(cls.model.owner_id == owner_id)
         result = await db.execute(query)
         spot = result.scalar_one()
         await db.delete(spot)

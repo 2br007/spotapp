@@ -1,6 +1,10 @@
 from datetime import datetime
 from typing import List, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class SchemaModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Error(BaseModel):
@@ -23,18 +27,20 @@ class TokenData(BaseModel):
 
 
 class InputDataValidator(BaseModel):
-    user_id: Optional[int] = Field(gt=0, le=2147483647)  # check int32 range
+    user_id: Optional[int] = Field(None, gt=0, le=2147483647)
+    spot_id: Optional[int] = Field(None, gt=0, le=2147483647)
+    comment_id: Optional[int] = Field(None, gt=0, le=2147483647)
 
 
 class InputSpotDataValidator(BaseModel):
-    spot_id:  Union[int, None] = Field(gt=0, le=2147483647)  # check int32 range
+    spot_id:  Union[int, None] = Field(None, gt=0, le=2147483647)  # check int32 range
     spot_country: Union[str, None] = None
     spot_city: Union[str, None] = None
     spot_street: Union[str, None] = None
-    owner_id: Union[int, None] = Field(gt=0, le=2147483647)  # check int32 range
+    owner_id: Union[int, None] = Field(None, gt=0, le=2147483647)  # check int32 range
 
 
-class UserCreationSchema(BaseModel):
+class UserCreationSchema(SchemaModel):
     nickname: str
     first_name: str
     last_name: str
@@ -43,33 +49,21 @@ class UserCreationSchema(BaseModel):
     password: str
     premium_account_type: bool = False
 
-    class Config:
-        orm_mode = True
-
-
-class UserTerseSchema(BaseModel):
+class UserTerseSchema(SchemaModel):
     nickname: str
     email: str
 
-    class Config:
-        orm_mode = True
-
-
-class UserOpenSchema(BaseModel):
+class UserOpenSchema(SchemaModel):
     nickname: str
     first_name: str
     last_name: str
     user_pic: Union[str, None]
-    friends: Union[List[str], None] = []
-    spot_photos: Union[List[str], None] = []
-    added_spots: Union[List[str], None] = []
-    favourite_spots: Union[List[str], None] = []
+    friends: Union[List[str], None] = Field(default_factory=list)
+    spot_photos: Union[List[str], None] = Field(default_factory=list)
+    added_spots: Union[List[str], None] = Field(default_factory=list)
+    favourite_spots: Union[List[str], None] = Field(default_factory=list)
 
-    class Config:
-        orm_mode = True
-
-
-class UserSchema(BaseModel):
+class UserSchema(SchemaModel):
     nickname: Union[str, None] = None
     first_name: Union[str, None] = None
     last_name: Union[str, None] = None
@@ -77,12 +71,9 @@ class UserSchema(BaseModel):
     email: Union[str, None] = None
     password: Union[str, None] = None
     premium_account_type: Union[bool, None] = None
+    disabled: Union[bool, None] = None
 
-    class Config:
-        orm_mode = True
-
-
-class UserFullSchema(BaseModel):
+class UserFullSchema(SchemaModel):
     nickname: Union[str, None] = None
     first_name: Union[str, None] = None
     last_name: Union[str, None] = None
@@ -90,17 +81,13 @@ class UserFullSchema(BaseModel):
     email: Union[str, None] = None
     password: Union[str, None] = None
     premium_account_type: Union[bool, None] = None
-    friends: Union[List[str], None] = []
-    spot_photos: Union[List[str], None] = []
-    added_spots: Union[List[str], None] = []
-    favourite_spots: Union[List[str], None] = []
+    friends: Union[List[str], None] = Field(default_factory=list)
+    spot_photos: Union[List[str], None] = Field(default_factory=list)
+    added_spots: Union[List[str], None] = Field(default_factory=list)
+    favourite_spots: Union[List[str], None] = Field(default_factory=list)
     created_at: datetime
 
-    class Config:
-        orm_mode = True
-
-
-class SpotSchema(BaseModel):
+class SpotSchema(SchemaModel):
     spot_name: str
     spot_pic: Union[str, None] = None
     spot_photos: List[str]
@@ -109,30 +96,18 @@ class SpotSchema(BaseModel):
     spot_street: str
     spot_street_number: str
     spot_description: Union[str, None] = None
-    spot_raiting: Union[int, None] = None
-    comment: Union[List[str], None]
+    spot_raiting: Optional[float] = Field(None, ge=0, le=5)
+    comment: Union[List[str], None] = None
+    sport_type: str = Field("skateboarding", min_length=3, max_length=20)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
     owner_id: int
 
-    class Config:
-        orm_mode = True
-        sample_schema = {
-            "example": {
-                "spot_name": "Theatr",
-                "spot_pic": "https://patrick.com/",
-                "spot_photos": ["https://patrick.com/some_spot/", "https://patrick.com/another_spot/"],
-                "spot_country": "France",
-                "spot_city": "Andresport",
-                "spot_street": "Campbell Falls",
-                "spot_street_number": "25",
-                "spot_description": "Doe",
-                "spot_raiting": 4.8,
-                "comment": ["spot_name1", "spot_name2", ],
-                "owner_id": 1
-            }
-        }
+class SpotCreateSchema(SpotSchema):
+    owner_id: Optional[int] = None
 
 
-class SpotUpdateSchema(BaseModel):
+class SpotUpdateSchema(SchemaModel):
     spot_name: Union[str, None] = None
     spot_photos: Union[List[str], None] = None
     spot_country: Union[str, None] = None
@@ -140,67 +115,21 @@ class SpotUpdateSchema(BaseModel):
     spot_street: Union[str, None] = None
     spot_street_number: Union[str, None] = None
     spot_description: Union[str, None] = None
-    spot_raiting: Union[int, None] = None
+    spot_raiting: Optional[float] = Field(None, ge=0, le=5)
 
-    class Config:
-        orm_mode = True
-        sample_schema = {
-            "example": {
-                "spot_name": "Theatr",
-                "spot_photos": ["https://patrick.com/some_spot/", "https://patrick.com/another_spot/"],
-                "spot_country": "France",
-                "spot_city": "Andresport",
-                "spot_street": "Campbell Falls",
-                "spot_street_number": "25",
-                "spot_description": "Doe",
-                "spot_raiting": 4.8,
-            }
-        }
-
-
-class SpotFilterSchema(BaseModel):
-    spot_id:  Union[int, None] = Field(gt=0, le=2147483647)  # check int32 range
+class SpotFilterSchema(SchemaModel):
+    spot_id:  Union[int, None] = Field(None, gt=0, le=2147483647)  # check int32 range
     spot_country: Union[str, None] = None
     spot_city: Union[str, None] = None
     spot_street: Union[str, None] = None
-    owner_id: Union[int, None] = Field(gt=0, le=2147483647)  # check int32 range
-
-    class Config:
-        orm_mode = True
-        sample_schema = {
-            "example": {
-                "spot_id": 1,
-                "spot_country": "France",
-                "spot_city": "Andresport",
-                "spot_street": "Campbell Falls",
-                "owner_id": 1
-            }
-        }
+    owner_id: Union[int, None] = Field(None, gt=0, le=2147483647)  # check int32 range
 
 
-class CommentNewSchema(BaseModel):
+class CommentNewSchema(SchemaModel):
     body: str
+    spot_id: int = Field(gt=0, le=2147483647)
 
-    class Config:
-        orm_mode = True
-        sample_schema = {
-            "example": {
-                "body": "This is awesome spot!"
-            }
-        }
-
-
-class CommentFullSchema(BaseModel):
+class CommentFullSchema(SchemaModel):
     comment_id: int
     body: str
     created_at: datetime
-
-    class Config:
-        orm_mode = True
-        sample_schema = {
-            "example": {
-                "comment_id": 123,
-                "body": "This is awesome spot!",
-                "created_at": "2022-05-05"
-            }
-        }

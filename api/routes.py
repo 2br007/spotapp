@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound
 
 from api import schema
-from api.authentication import get_current_user
+from api.authentication import get_current_active_user
 from api.crud import CRUDSpot, CRUDUser, CRUDComment
 from api.db import get_session
 from api.models import SpotDBModel, UserDBModel, CommentDBModel
@@ -41,14 +41,17 @@ async def get_user(user_id: int,
 
     except ValidationError as exc:
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail=exc)
+    except HTTPException:
+        raise
     except NoResultFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Specified {user_id=} was not found",
         )
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 @spotapp_user_router.get(
@@ -64,9 +67,10 @@ async def get_all_users(db: AsyncSession = Depends(get_session),
     try:
         return await CRUDUser.get_all_users(db=db)
 
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 @spotapp_user_router.post(
@@ -82,13 +86,14 @@ async def create_user(payload: schema.UserCreationSchema,
     try:
         hashed_password = PasswordHasher().hash_password(payload.password)
         payload.password = hashed_password
-        new_user = UserDBModel(**payload.dict())
+        new_user = UserDBModel(**payload.model_dump())
 
         return await CRUDUser.add_user(db=db, user=new_user)
 
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 @spotapp_user_router.put(
@@ -103,25 +108,35 @@ async def create_user(payload: schema.UserCreationSchema,
 async def update_user(user_id: int,
                       payload: schema.UserSchema,
                       db: AsyncSession = Depends(get_session),
+                      current_user: UserDBModel = Depends(get_current_active_user),
                       ) -> str:
     """Updating user by the user id"""
 
     try:
         schema.InputDataValidator(user_id=user_id)
-        data_to_update = payload.dict()
+        if current_user.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="You cannot update this user")
+        data_to_update = payload.model_dump()
+        if data_to_update.get("password") is not None:
+            data_to_update["password"] = PasswordHasher().hash_password(
+                data_to_update["password"])
 
         return await CRUDUser.update(db=db, user_id=user_id, data=data_to_update)
 
     except ValidationError as exc:
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail=exc)
+    except HTTPException:
+        raise
     except NoResultFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Specified {user_id=} was not found",
         )
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 @spotapp_user_router.delete(
@@ -135,24 +150,31 @@ async def update_user(user_id: int,
 )
 async def destroy_user(user_id: int,
                        db: AsyncSession = Depends(get_session),
+                       current_user: UserDBModel = Depends(get_current_active_user),
                        ) -> Response:
     """Getting user by the user id"""
 
     try:
         schema.InputDataValidator(user_id=user_id)
+        if current_user.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="You cannot delete this user")
 
         return await CRUDUser.delete_user(db=db, user_id=user_id)
 
     except ValidationError as exc:
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail=exc)
+    except HTTPException:
+        raise
     except NoResultFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Specified {user_id=} was not found",
         )
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 @spotapp_spot_router.post(
@@ -160,23 +182,25 @@ async def destroy_user(user_id: int,
     response_model=schema.SpotSchema,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_spot(payload: schema.SpotSchema,
+async def create_spot(payload: schema.SpotCreateSchema,
                       db: AsyncSession = Depends(get_session),
-                      current_user: UserDBModel = Depends(get_current_user),
+                      current_user: UserDBModel = Depends(get_current_active_user),
                       ) -> schema.SpotSchema:
     """Creating a new spot"""
 
     try:
         new_spot = SpotDBModel(
-            **payload.dict(),
+            **payload.model_dump(exclude={"owner_id"}),
+            owner_id=current_user.user_id,
             spot_full_address=f"{payload.spot_street}, {payload.spot_street_number}. "
                               f"{payload.spot_country}, {payload.spot_city},")
 
         return await CRUDSpot.add_spot(db=db, spot=new_spot)
 
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 @spotapp_spot_router.get(
@@ -190,7 +214,6 @@ async def create_spot(payload: schema.SpotSchema,
 )
 async def get_spot_by_id(spot_id: int,
                          db: AsyncSession = Depends(get_session),
-                         current_user: UserDBModel = Depends(get_current_user),
                          ) -> schema.SpotSchema:
     """Getting spot by the id"""
 
@@ -207,9 +230,10 @@ async def get_spot_by_id(spot_id: int,
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Specified {spot_id=} was not found",
         )
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 @spotapp_spot_router.get(
@@ -226,7 +250,6 @@ async def get_spots(spot_country: Union[str, None] = None,
                     spot_street: Union[str, None] = None,
                     owner_id: Union[int, None] = None,
                     db: AsyncSession = Depends(get_session),
-                    current_user: UserDBModel = Depends(get_current_user),
                     ) -> List[schema.SpotSchema]:
     """Getting filtered spots"""
 
@@ -251,9 +274,10 @@ async def get_spots(spot_country: Union[str, None] = None,
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Specified spot was not found",
         )
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 @spotapp_spot_router.put(
@@ -268,14 +292,15 @@ async def get_spots(spot_country: Union[str, None] = None,
 async def update_spot(spot_id: int,
                       payload: schema.SpotUpdateSchema,
                       db: AsyncSession = Depends(get_session),
-                      current_user: UserDBModel = Depends(get_current_user),
+                      current_user: UserDBModel = Depends(get_current_active_user),
                       ) -> str:
     """Updating spot by the spot id"""
 
     try:
-        data_to_update = payload.dict()
+        data_to_update = payload.model_dump()
 
-        return await CRUDSpot.update(db=db, spot_id=spot_id, data=data_to_update)
+        return await CRUDSpot.update(db=db, spot_id=spot_id, data=data_to_update,
+                         owner_id=current_user.user_id)
 
     except ValidationError as exc:
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail=exc)
@@ -284,9 +309,10 @@ async def update_spot(spot_id: int,
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Specified {spot_id=} was not found",
         )
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 @spotapp_spot_router.delete(
@@ -300,14 +326,15 @@ async def update_spot(spot_id: int,
 )
 async def destroy_spot(spot_id: int,
                        db: AsyncSession = Depends(get_session),
-                       current_user: UserDBModel = Depends(get_current_user),
+                       current_user: UserDBModel = Depends(get_current_active_user),
                        ) -> Response:
     """Getting spot by the spot id"""
 
     try:
         schema.InputDataValidator(spot_id=spot_id)
 
-        return await CRUDSpot.delete_spot(db=db, spot_id=spot_id)
+        return await CRUDSpot.delete_spot(db=db, spot_id=spot_id,
+                          owner_id=current_user.user_id)
 
     except ValidationError as exc:
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail=exc)
@@ -316,9 +343,10 @@ async def destroy_spot(spot_id: int,
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Specified {spot_id=} was not found",
         )
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 @spotapp_comment_router.get(
@@ -347,9 +375,10 @@ async def get_comment(comment_id: int,
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Specified {comment_id=} was not found",
         )
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")
 
 
 @spotapp_comment_router.post(
@@ -359,14 +388,17 @@ async def get_comment(comment_id: int,
 )
 async def create_comment(payload: schema.CommentNewSchema,
                          db: AsyncSession = Depends(get_session),
+                         current_user: UserDBModel = Depends(get_current_active_user),
                          ) -> schema.CommentFullSchema:
     """Creating a new comment"""
 
     try:
-        new_comment = CommentDBModel(**payload.dict())
+        new_comment = CommentDBModel(**payload.model_dump(),
+                         owner_id=current_user.user_id)
 
         return await CRUDComment.add_comment(db=db, comment=new_comment)
 
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error")

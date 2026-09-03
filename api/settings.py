@@ -2,15 +2,19 @@ import logging
 import os
 from typing import Optional
 
-from pydantic import BaseSettings, PostgresDsn
+from pydantic import BaseModel, Field
 
 from api.constants import DEFAULT_LOG_FORMAT
 
 
-class Settings(BaseSettings):
+def database_dsn():
+    return os.environ.get("DB_DSN") or os.environ["db_dsn"]
+
+
+class Settings(BaseModel):
     """Settings which can be provided when server starts"""
     # db_dsn in format: 'postgresql+asyncpg://USERNAME:PASSWORD@$HOST/DB_NAME'
-    db_dsn: PostgresDsn  # = os.environ.get("DB_DSN")
+    db_dsn: str = Field(default_factory=database_dsn)
     log_format: Optional[str] = DEFAULT_LOG_FORMAT
     log_level: Optional[str] = "INFO"
     db_query_timeout: Optional[int] = 30
